@@ -53,7 +53,7 @@ def update_data():
         
         df['WALCL'] = df['WALCL'] * 1000000
         df['WDTGAL'] = df['WDTGAL'] * 1000000
-        df['RRPONTSYD'] = df['RRPONTSYD'] * 1000000
+        df['RRPONTSYD'] = df['RRPONTSYD'] * 1000000000
         
         # Net Liquidity = WALCL - WDTGAL - RRPONTSYD
         df['NetLiquidity'] = df['WALCL'] - df['WDTGAL'] - df['RRPONTSYD']
