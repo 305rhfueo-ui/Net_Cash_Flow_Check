@@ -2,11 +2,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnHistory = document.getElementById('btn-history');
     const btnGraph = document.getElementById('btn-graph');
     const backBtns = document.querySelectorAll('.back-btn');
-    
+
     const menuView = document.getElementById('menu-view');
     const historyView = document.getElementById('view-history');
     const graphView = document.getElementById('view-graph');
-    
+
     let liquidityData = [];
     let chartInstance = null;
 
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const formatPercent = (percent) => {
-        if (percent === null || percent === undefined) return {text: '-', isNeg: false};
+        if (percent === null || percent === undefined) return { text: '-', isNeg: false };
         const value = percent * 100;
         return {
             text: value.toFixed(1) + '%',
@@ -64,14 +64,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         liquidityData.forEach(row => {
             const tr = document.createElement('tr');
-            
+
             const yoy = formatPercent(row.YoY);
             const mom = formatPercent(row.MoM);
             const wow = formatPercent(row.WoW);
 
             // Set cell classes based on user requirement (Red back for negative, White back for positive/zero)
             const getPctClass = (valObj) => {
-                if(valObj.text === '-') return '';
+                if (valObj.text === '-') return '';
                 return valObj.isNeg ? 'cell-negative' : 'cell-positive';
             };
 
@@ -81,9 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${formatNumber(row.WDTGAL)}</td>
                 <td>${formatNumber(row.RRPONTSYD)}</td>
                 <td style="font-weight: bold; color: #60a5fa">${formatNumber(row.NetLiquidity)}</td>
-                <td class="${getPctClass(yoy)}" style="text-align:center">${yoy.text}</td>
-                <td class="${getPctClass(mom)}" style="text-align:center">${mom.text}</td>
                 <td class="${getPctClass(wow)}" style="text-align:center">${wow.text}</td>
+                <td class="${getPctClass(mom)}" style="text-align:center">${mom.text}</td>
+                <td class="${getPctClass(yoy)}" style="text-align:center">${yoy.text}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ma60 = graphData.map(d => d.MA60);
 
         const ctx = document.getElementById('liquidityChart').getContext('2d');
-        
+
         Chart.defaults.color = '#cbd5e1';
         Chart.defaults.font.family = "'Inter', sans-serif";
 
@@ -118,8 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         label: '순유동성',
                         data: daily,
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                        borderWidth: 1,
+                        borderColor: '#ffffff', // White
+                        borderWidth: 2,
                         pointRadius: 0,
                         tension: 0.1
                     },
@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             color: 'rgba(255, 255, 255, 0.05)'
                         },
                         ticks: {
-                            callback: function(value) {
+                            callback: function (value) {
                                 return (value / 1000000000).toFixed(0) + 'B'; // formatting as billions roughly for scale
                             }
                         }
