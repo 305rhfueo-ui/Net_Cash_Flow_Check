@@ -1,6 +1,9 @@
 name: Update Net Cash Flow Data
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     # 매일 아침 업데이트 (한국 시간 오전 9시경 = UTC 0시)
     - cron: '0 0 * * 1-5'

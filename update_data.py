@@ -4,12 +4,22 @@ import json
 import io
 from datetime import datetime, timedelta
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 def get_fred_data(series_id):
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
     headers = {
-        'User-Agent': 'Mozilla/5.0'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
     }
-    response = requests.get(url, headers=headers)
+    
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=1, status_forcelist=[ 429, 500, 502, 503, 504 ])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    
+    response = session.get(url, headers=headers, timeout=15)
     response.raise_for_status()
     df = pd.read_csv(io.StringIO(response.text), parse_dates=[0], index_col=0)
     # Replace '.' with NaN, then convert to numeric
