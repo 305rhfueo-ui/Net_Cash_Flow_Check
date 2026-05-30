@@ -1,30 +1,29 @@
 import pandas as pd
 import requests
 import json
-import io
-from playwright.sync_api import sync_playwright
+import time
 
 def get_fred_data(series_id):
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    text = ""
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-        
-        try:
-            with page.expect_download(timeout=15000) as download_info:
-                page.goto(url)
-            download = download_info.value
-            path = download.path()
-            with open(path, 'r', encoding='utf-8') as f:
-                text = f.read()
-        except Exception:
-            # If download fails, maybe it rendered as text
-            text = page.evaluate("document.body.innerText")
-            
-        browser.close()
-
-    df = pd.read_csv(io.StringIO(text), parse_dates=[0], index_col=0)
+    url = f"https://fred.stlouisfed.org/graph/api/series/?obs=true&id={series_id}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    }
+    
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+    
+    obs = data['observations'][0]
+    df = pd.DataFrame(obs, columns=['timestamp', series_id])
+    
+    # Drop rows where value is empty or '.'
+    df = df[df[series_id] != '.']
+    
+    # Convert timestamp to date
+    df['date'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df.set_index('date', inplace=True)
+    df.drop(columns=['timestamp'], inplace=True)
+    
     df[series_id] = pd.to_numeric(df[series_id], errors='coerce')
     return df
 
@@ -33,8 +32,10 @@ def update_data():
         # Fetch data
         print("Fetching WALCL...")
         df_walcl = get_fred_data('WALCL')
+        time.sleep(2)
         print("Fetching WDTGAL...")
         df_wdtgal = get_fred_data('WDTGAL')
+        time.sleep(2)
         print("Fetching RRPONTSYD...")
         df_rrp = get_fred_data('RRPONTSYD')
         
@@ -53,16 +54,6 @@ def update_data():
         # Reindex to business days, forward filling missing days
         df = df.reindex(business_days, method='ffill')
         
-        # Multiply by 1,000,000 (since Fred data is typically in millions or billions, but user said multiply by 1000000)
-        # WALCL is in Millions of Dollars. Multiplying by 10^6 gives raw $.
-        # WDTGAL is in Millions of Dollars.
-        # RRPONTSYD is in Billions of Dollars. Wait! Fred says RRPONTSYD is in Billions of Dollars.
-        # But User instruction:
-        # 연준자산 (WALCL): 1000000 곱함
-        # TGA (WDTGAL): 1000000 곱함
-        # 역레포 (RRPONTSYD): 1000000 곱함 "단위 통일성을 위해" (For unit consistency)
-        # So I will blindly follow the user instruction to multiply ALL by 1,000,000.
-        
         df['WALCL'] = df['WALCL'] * 1000000
         df['WDTGAL'] = df['WDTGAL'] * 1000000
         df['RRPONTSYD'] = df['RRPONTSYD'] * 1000000000
@@ -70,27 +61,19 @@ def update_data():
         # Net Liquidity = WALCL - WDTGAL - RRPONTSYD
         df['NetLiquidity'] = df['WALCL'] - df['WDTGAL'] - df['RRPONTSYD']
         
-        # Calculate changes using shift on business days (df is already bdate_range)
-        # YoY: 250 business days
-        # MoM: 25 business days
-        # WoW: 5 business days
         df['YoY'] = (df['NetLiquidity'] / df['NetLiquidity'].shift(250)) - 1
         df['MoM'] = (df['NetLiquidity'] / df['NetLiquidity'].shift(25)) - 1
         df['WoW'] = (df['NetLiquidity'] / df['NetLiquidity'].shift(5)) - 1
         
-        # Drop rows entirely composed of NaN, optionally we can just keep everything that has NetLiquidity
         df.dropna(subset=['NetLiquidity'], inplace=True)
         
-        # Format dates back to string
         df.index = df.index.strftime('%Y-%m-%d')
         df.index.name = 'Date'
         
-        # Compute Moving Averages for Graph
         df['MA5'] = df['NetLiquidity'].rolling(window=5).mean()
         df['MA20'] = df['NetLiquidity'].rolling(window=20).mean()
         df['MA60'] = df['NetLiquidity'].rolling(window=60).mean()
         
-        # Prepare output data format
         output_data = []
         for date, row in df.iterrows():
             output_data.append({
