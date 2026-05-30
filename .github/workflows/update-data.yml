@@ -11,7 +11,7 @@ on:
 
 jobs:
   update-data:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     permissions:
       contents: write
 
