@@ -2,19 +2,29 @@ import pandas as pd
 import requests
 import json
 import io
-from datetime import datetime, timedelta
-
-import cloudscraper
+from playwright.sync_api import sync_playwright
 
 def get_fred_data(series_id):
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    
-    scraper = cloudscraper.create_scraper()
-    response = scraper.get(url, timeout=30)
-    response.raise_for_status()
-    
-    df = pd.read_csv(io.StringIO(response.text), parse_dates=[0], index_col=0)
-    # Replace '.' with NaN, then convert to numeric
+    text = ""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        
+        try:
+            with page.expect_download(timeout=15000) as download_info:
+                page.goto(url)
+            download = download_info.value
+            path = download.path()
+            with open(path, 'r', encoding='utf-8') as f:
+                text = f.read()
+        except Exception:
+            # If download fails, maybe it rendered as text
+            text = page.evaluate("document.body.innerText")
+            
+        browser.close()
+
+    df = pd.read_csv(io.StringIO(text), parse_dates=[0], index_col=0)
     df[series_id] = pd.to_numeric(df[series_id], errors='coerce')
     return df
 
